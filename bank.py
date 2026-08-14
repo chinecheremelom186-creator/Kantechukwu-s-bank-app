@@ -11,14 +11,12 @@ st.set_page_config(page_title="Apex Virtual Bank", page_icon="🏦", layout="cen
 DB_FILE = "bank_db.json"
 
 def load_db():
-    # Load database from file, or create empty dictionary if it doesn't exist
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r") as f:
             return json.load(f)
     return {}
 
 def save_db(data):
-    # Save database changes permanently to the file
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
@@ -30,7 +28,6 @@ if 'logged_in_acc' not in st.session_state:
 
 # --- HELPER FUNCTIONS ---
 def generate_account_number():
-    # Generates a random 10 digit account number starting with '9'
     while True:
         acc_num = '9' + ''.join([str(random.randint(0, 9)) for _ in range(9)])
         if acc_num not in st.session_state.db:
@@ -63,16 +60,17 @@ if menu == "Open an Account":
             elif len(new_pin) != 4 or not new_pin.isdigit():
                 st.error("PIN must be exactly 4 digits.")
             else:
+                # Reload DB to ensure we don't overwrite other accounts
+                st.session_state.db = load_db()
                 acc_num = generate_account_number()
                 
-                # Save to database
                 st.session_state.db[acc_num] = {
                     "name": new_name,
                     "pin": new_pin,
                     "balance": 0.0,
                     "history": [f"[{get_time()}] Account created successfully."]
                 }
-                save_db(st.session_state.db) # Save to JSON file
+                save_db(st.session_state.db)
                 
                 st.success("🎉 Account Created Successfully!")
                 st.info(f"**Your Account Number is: {acc_num}**")
@@ -83,7 +81,6 @@ if menu == "Open an Account":
 # ==========================================
 elif menu == "Home / Login":
     
-    # If no one is logged in, show Login Screen
     if st.session_state.logged_in_acc is None:
         st.header("Customer Login")
         with st.container(border=True):
@@ -91,6 +88,7 @@ elif menu == "Home / Login":
             login_pin = st.text_input("Enter 4-digit PIN:", type="password", max_chars=4)
             
             if st.button("Secure Login"):
+                st.session_state.db = load_db() # Refresh DB on login attempt
                 if login_acc in st.session_state.db:
                     if st.session_state.db[login_acc]["pin"] == login_pin:
                         st.session_state.logged_in_acc = login_acc
@@ -104,17 +102,22 @@ elif menu == "Home / Login":
     # 3. USER DASHBOARD (Logged In)
     # ==========================================
     else:
+        # Always fetch latest data from DB file
+        st.session_state.db = load_db()
         acc_num = st.session_state.logged_in_acc
+        
+        if acc_num not in st.session_state.db:
+            st.error("Session error. Please log in again.")
+            st.session_state.logged_in_acc = None
+            st.rerun()
+            
         user_data = st.session_state.db[acc_num]
         
-        # Dashboard Header
         st.subheader(f"Welcome back, {user_data['name']} 👋")
         st.markdown(f"**Account Number:** `{acc_num}`")
         
-        # Display Balance
         st.metric(label="Available Balance", value=f"₦{user_data['balance']:,.2f}")
         
-        # Action Tabs
         dep_tab, with_tab, trans_tab, hist_tab = st.tabs(["Deposit", "Withdraw", "Transfer", "History"])
         
         # --- DEPOSIT ---
@@ -154,18 +157,22 @@ elif menu == "Home / Login":
             trans_pin = st.text_input("Confirm PIN:", type="password", max_chars=4, key="trans_pin")
             
             if st.button("Transfer Funds"):
-                if trans_pin != user_data['pin']:
+                # Reload DB immediately before transfer execution
+                st.session_state.db = load_db()
+                sender_data = st.session_state.db[acc_num]
+                
+                if trans_pin != sender_data['pin']:
                     st.error("Incorrect PIN.")
                 elif rec_acc not in st.session_state.db:
                     st.error("Receiver Account not found.")
                 elif rec_acc == acc_num:
                     st.error("You cannot transfer to yourself.")
-                elif trans_amount > user_data['balance']:
+                elif trans_amount > sender_data['balance']:
                     st.error("Insufficient funds for this transfer.")
                 elif trans_amount > 0:
                     # Deduct from Sender
-                    user_data['balance'] -= trans_amount
-                    user_data['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
+                    sender_data['balance'] -= trans_amount
+                    sender_data['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
                     
                     # Add to Receiver
                     st.session_state.db[rec_acc]['balance'] += trans_amount
@@ -179,7 +186,6 @@ elif menu == "Home / Login":
         with hist_tab:
             st.write("Recent Transactions")
             with st.container(border=True):
-                # Reverse history to show newest first
                 for record in reversed(user_data['history']):
                     st.text(record)
                     
