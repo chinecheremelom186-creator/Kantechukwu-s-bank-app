@@ -53,7 +53,6 @@ OCCUPATIONS = [
 ]
 
 MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed", "Prefer not to say"]
-
 # ==========================================
 # 1. ADMIN LOGIN VIEW
 # ==========================================
@@ -77,17 +76,23 @@ if st.session_state.is_admin:
             if selected_acc:
                 client = st.session_state.db[selected_acc]
                 with st.container(border=True):
-                    st.write(f"**Name:** {client['surname']} {client['middle_name']} {client['last_name']}")
+                    surname = client.get('surname', client.get('name', 'Unknown'))
+                    mid_name = client.get('middle_name', '')
+                    last_name = client.get('last_name', '')
+                    
+                    st.write(f"**Name:** {surname} {mid_name} {last_name}")
                     st.write(f"**Account Status:** {'🟢 Active' if client.get('status', 'active') == 'active' else '🔴 Frozen'}")
-                    st.write(f"**Balance:** ₦{client['balance']:,.2f}")
+                    st.write(f"**Balance:** ₦{client.get('balance', 0.0):,.2f}")
                     st.write(f"**Daily Expected Limit:** ₦{client.get('expected_limit', 0):,.2f}")
-                    st.write(f"**Occupation:** {client['occupation']} | **State:** {client['state_of_origin']}")
+                    st.write(f"**Occupation:** {client.get('occupation', 'N/A')} | **State:** {client.get('state_of_origin', 'N/A')}")
                     
                     st.divider()
                     st.write("#### Fund / Credit Account")
                     fund_amount = st.number_input("Amount to inject (₦):", min_value=0.0, step=1000.0, key=f"fund_{selected_acc}")
                     if st.button("Authorize Founder Credit"):
-                        client['balance'] += fund_amount
+                        client['balance'] = client.get('balance', 0.0) + fund_amount
+                        if 'history' not in client:
+                            client['history'] = []
                         client['history'].append(f"[{get_time()}] Founder Credited: +₦{fund_amount:,.2f}")
                         save_db(st.session_state.db)
                         st.success(f"Successfully credited ₦{fund_amount:,.2f} to {selected_acc}!")
@@ -98,11 +103,13 @@ if st.session_state.is_admin:
         st.subheader("Account Freeze & Security Control")
         st.write("Freeze suspicious accounts or unfreeze accounts flagged for exceeding expected daily limits.")
         
+        st.session_state.db = load_db()
         if st.session_state.db:
             for acc, data in st.session_state.db.items():
                 col1, col2, col3 = st.columns([2, 2, 1])
                 with col1:
-                    st.text(f"{acc} - {data['surname']}")
+                    s_name = data.get('surname', data.get('name', 'User'))
+                    st.text(f"{acc} - {s_name}")
                 with col2:
                     status = data.get('status', 'active')
                     st.text(f"Status: {status.upper()}")
@@ -110,12 +117,16 @@ if st.session_state.is_admin:
                     if status == 'active':
                         if st.button("Freeze", key=f"freeze_{acc}"):
                             data['status'] = 'frozen'
+                            if 'history' not in data:
+                                data['history'] = []
                             data['history'].append(f"[{get_time()}] Account frozen by Admin.")
                             save_db(st.session_state.db)
                             st.rerun()
                     else:
                         if st.button("Unfreeze", key=f"unfreeze_{acc}"):
                             data['status'] = 'active'
+                            if 'history' not in data:
+                                data['history'] = []
                             data['history'].append(f"[{get_time()}] Account unfrozen by Admin.")
                             save_db(st.session_state.db)
                             st.rerun()
@@ -131,7 +142,8 @@ if st.session_state.is_admin:
                 for idx, ticket in enumerate(data["tickets"]):
                     ticket_found = True
                     with st.container(border=True):
-                        st.markdown(f"**From Account:** `{acc}` ({data['surname']})")
+                        s_name = data.get('surname', data.get('name', 'User'))
+                        st.markdown(f"**From Account:** `{acc}` ({s_name})")
                         st.markdown(f"**Issue:** {ticket['message']}")
                         st.markdown(f"**Status:** `{ticket['status']}`")
                         
@@ -149,6 +161,9 @@ if st.session_state.is_admin:
     if st.button("Exit Admin Portal"):
         st.session_state.is_admin = False
         st.rerun()
+
+
+        
 
 # ==========================================
 # 2. STANDARD USER / PUBLIC VIEW
