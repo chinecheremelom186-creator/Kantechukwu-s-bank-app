@@ -61,10 +61,10 @@ if st.session_state.is_admin:
     st.markdown("Full systemic control, liquidity management, and customer support resolution.")
     
     admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 Client Accounts & Funding", "🛡️ Fraud & Freeze Control", "💬 Support Tickets"])
-    
+
     # --- CLIENT ACCOUNTS & FUNDING ---
     with admin_tab1:
-        st.subheader("Registered Client Directory")
+        st.subheader("Registered Client Directory & Transaction Inspector")
         st.session_state.db = load_db()
         
         if not st.session_state.db:
@@ -83,8 +83,17 @@ if st.session_state.is_admin:
                     st.write(f"**Name:** {surname} {mid_name} {last_name}")
                     st.write(f"**Account Status:** {'🟢 Active' if client.get('status', 'active') == 'active' else '🔴 Frozen'}")
                     st.write(f"**Balance:** ₦{client.get('balance', 0.0):,.2f}")
-                    st.write(f"**Daily Expected Limit:** ₦{client.get('expected_limit', 0):,.2f}")
+                    st.write(f"**Max Single Incoming Limit:** ₦{client.get('expected_limit', 0):,.2f}")
                     st.write(f"**Occupation:** {client.get('occupation', 'N/A')} | **State:** {client.get('state_of_origin', 'N/A')}")
+                    
+                    st.divider()
+                    st.write("📜 **User Transaction History / Statement:**")
+                    history_list = client.get('history', [])
+                    if history_list:
+                        for h in reversed(history_list):
+                            st.text(h)
+                    else:
+                        st.info("No transactions recorded yet.")
                     
                     st.divider()
                     st.write("#### Fund / Credit Account")
@@ -98,6 +107,7 @@ if st.session_state.is_admin:
                         st.success(f"Successfully credited ₦{fund_amount:,.2f} to {selected_acc}!")
                         st.rerun()
 
+    
     # --- FRAUD & FREEZE CONTROL ---
     with admin_tab2:
         st.subheader("Account Freeze & Security Control")
@@ -383,7 +393,7 @@ else:
                     st.error("You cannot transfer to yourself.")
                 elif trans_amount > sender['balance']:
                     st.error("Insufficient funds.")
-                elif trans_amount > 0:
+                elif trans_amount > 0
                     # Deduct sender
                     sender['balance'] -= trans_amount
                     sender['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
@@ -393,23 +403,19 @@ else:
                     receiver['balance'] += trans_amount
                     receiver['history'].append(f"[{get_time()}] Received from {acc_num}: +₦{trans_amount:,.2f}")
                     
-                    # FRAUD / LIMIT CHECK (Auto-freeze if transfer exceeds expected daily limit)
-                    if trans_amount > receiver.get('expected_limit', 50000.0):
+                    # FRAUD / SINGLE-TRANSFER LIMIT CHECK
+                    # Freezes if this ONE individual transfer exceeds their max single incoming limit
+                    single_limit = receiver.get('expected_limit', 50000.0)
+                    if trans_amount > single_limit:
                         receiver['status'] = 'frozen'
-                        receiver['history'].append(f"[{get_time()}] ACCOUNT AUTO-FROZEN: Incoming transfer exceeded daily limit.")
-                        st.warning("⚠️ Transfer completed, but recipient account was flagged and frozen due to daily limit safety protocols.")
+                        receiver['history'].append(f"[{get_time()}] ACCOUNT AUTO-FROZEN: Single incoming transfer (₦{trans_amount:,.2f}) exceeded max single limit (₦{single_limit:,.2f}).")
+                        st.warning(f"⚠️ Transfer completed, but recipient account was flagged and frozen because the single transfer of ₦{trans_amount:,.2f} exceeded their max limit of ₦{single_limit:,.2f}.")
                     
                     save_db(st.session_state.db)
                     st.success(f"Successfully transferred ₦{trans_amount:,.2f}!")
                     st.rerun()
 
-    # --- TRANSACTIONS TAB ---
-    elif nav == "💸 Transactions":
-        st.subheader("📜 Statement & History")
-        with st.container(border=True):
-            for record in reversed(user_data['history']):
-                st.text(record)
-
+                    
     # --- SUPPORT & FEEDBACK TAB ---
     elif nav == "💬 Support & Feedback":
         st.subheader("Help Desk & Founder Responses")
