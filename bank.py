@@ -20,13 +20,11 @@ def save_db(data):
     with open(DB_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# Initialize session state for DB and login
 if 'db' not in st.session_state:
     st.session_state.db = load_db()
 if 'logged_in_acc' not in st.session_state:
     st.session_state.logged_in_acc = None
 
-# --- HELPER FUNCTIONS ---
 def generate_account_number():
     while True:
         acc_num = '9' + ''.join([str(random.randint(0, 9)) for _ in range(9)])
@@ -36,59 +34,24 @@ def generate_account_number():
 def get_time():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# --- APP LAYOUT ---
-st.title("🏦 Apex Virtual Bank")
-st.markdown("Secure, Fast, and Reliable Web Banking.")
-
-# --- SIDEBAR NAVIGATION ---
-menu = st.sidebar.radio("Navigation", ["Home / Login", "Open an Account"])
-
 # ==========================================
-# 1. ACCOUNT CREATION
+# APP INTERFACE: NOT LOGGED IN (Welcome / Me / Auth)
 # ==========================================
-if menu == "Open an Account":
-    st.header("Open a New Bank Account")
-    st.write("Join us today and get your 10-digit account number instantly.")
+if st.session_state.logged_in_acc is None:
+    st.title("The Smarter Way to Bank 🚀")
+    st.caption("Free Transfers | Top Savings Rate | Reliable Service")
     
-    with st.container(border=True):
-        new_name = st.text_input("Enter Your Full Name:")
-        new_pin = st.text_input("Choose a 4-digit PIN:", type="password", max_chars=4)
-        
-        if st.button("Create My Account"):
-            if not new_name or not new_pin:
-                st.error("Please fill in all fields.")
-            elif len(new_pin) != 4 or not new_pin.isdigit():
-                st.error("PIN must be exactly 4 digits.")
-            else:
-                # Reload DB to ensure we don't overwrite other accounts
-                st.session_state.db = load_db()
-                acc_num = generate_account_number()
-                
-                st.session_state.db[acc_num] = {
-                    "name": new_name,
-                    "pin": new_pin,
-                    "balance": 0.0,
-                    "history": [f"[{get_time()}] Account created successfully."]
-                }
-                save_db(st.session_state.db)
-                
-                st.success("🎉 Account Created Successfully!")
-                st.info(f"**Your Account Number is: {acc_num}**")
-                st.warning("Please copy your Account Number and keep your PIN safe. You will need them to log in.")
-
-# ==========================================
-# 2. LOGIN SYSTEM
-# ==========================================
-elif menu == "Home / Login":
+    # Bottom-style or main menu options like the reference image
+    choice = st.radio("Select an Option:", ["Login", "Open an Account", "USSD Service", "Customer Service", "Security Center"])
     
-    if st.session_state.logged_in_acc is None:
-        st.header("Customer Login")
+    if choice == "Login":
+        st.subheader("Customer Login")
         with st.container(border=True):
             login_acc = st.text_input("10-Digit Account Number:")
             login_pin = st.text_input("Enter 4-digit PIN:", type="password", max_chars=4)
             
-            if st.button("Secure Login"):
-                st.session_state.db = load_db() # Refresh DB on login attempt
+            if st.button("Login to Dashboard", use_container_width=True):
+                st.session_state.db = load_db()
                 if login_acc in st.session_state.db:
                     if st.session_state.db[login_acc]["pin"] == login_pin:
                         st.session_state.logged_in_acc = login_acc
@@ -97,99 +60,128 @@ elif menu == "Home / Login":
                         st.error("Incorrect PIN.")
                 else:
                     st.error("Account Number not found.")
-                    
-    # ==========================================
-    # 3. USER DASHBOARD (Logged In)
-    # ==========================================
-    else:
-        # Always fetch latest data from DB file
-        st.session_state.db = load_db()
-        acc_num = st.session_state.logged_in_acc
-        
-        if acc_num not in st.session_state.db:
-            st.error("Session error. Please log in again.")
-            st.session_state.logged_in_acc = None
-            st.rerun()
+
+    elif choice == "Open an Account":
+        st.subheader("Open a New Bank Account")
+        with st.container(border=True):
+            new_name = st.text_input("Enter Your Full Name:")
+            new_pin = st.text_input("Choose a 4-digit PIN:", type="password", max_chars=4)
             
-        user_data = st.session_state.db[acc_num]
-        
+            if st.button("Create Account", use_container_width=True):
+                if not new_name or not new_pin:
+                    st.error("Please fill in all fields.")
+                elif len(new_pin) != 4 or not new_pin.isdigit():
+                    st.error("PIN must be exactly 4 digits.")
+                else:
+                    st.session_state.db = load_db()
+                    acc_num = generate_account_number()
+                    st.session_state.db[acc_num] = {
+                        "name": new_name,
+                        "pin": new_pin,
+                        "balance": 0.0,
+                        "history": [f"[{get_time()}] Account created successfully."]
+                    }
+                    save_db(st.session_state.db)
+                    st.success("🎉 Account Created Successfully!")
+                    st.info(f"**Your Account Number: {acc_num}**")
+
+    elif choice == "USSD Service":
+        st.subheader("📱 Quick USSD Banking")
+        st.info("Dial `*999#` offline on any mobile network to check balances and perform quick transfers without internet data.")
+
+    elif choice == "Customer Service":
+        st.subheader("🎧 24/7 Support Center")
+        st.write("Need help? Reach out to our virtual bank representatives.")
+        st.text("Email: support@apexbank.com")
+        st.text("Helpline: 0800-APEX-BANK")
+
+    elif choice == "Security Center":
+        st.subheader("🛡️ Security & Privacy Center")
+        st.write("Your account is protected with advanced encryption and secure 4-digit PIN verification.")
+
+# ==========================================
+# APP INTERFACE: LOGGED IN DASHBOARD
+# ==========================================
+else:
+    st.session_state.db = load_db()
+    acc_num = st.session_state.logged_in_acc
+    user_data = st.session_state.db[acc_num]
+    
+    # Fintech bottom-style navigation menu simulation using radio tabs
+    nav = st.radio("Menu", ["🏠 Home", "💸 Transactions", "📊 Wealth / Savings", "🎁 Rewards", "⚙️ Me / Profile"], horizontal=True)
+    
+    st.divider()
+    
+    if nav == "🏠 Home":
         st.subheader(f"Welcome back, {user_data['name']} 👋")
         st.markdown(f"**Account Number:** `{acc_num}`")
-        
         st.metric(label="Available Balance", value=f"₦{user_data['balance']:,.2f}")
         
-        dep_tab, with_tab, trans_tab, hist_tab = st.tabs(["Deposit", "Withdraw", "Transfer", "History"])
-        
-        # --- DEPOSIT ---
-        with dep_tab:
-            st.write("Add funds to your account.")
-            dep_amount = st.number_input("Amount to deposit (₦):", min_value=0.0, step=500.0, key="dep")
-            if st.button("Deposit Funds"):
+        st.markdown("### Quick Actions")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Deposit Funds", use_container_width=True):
+                st.session_state.quick_action = "Deposit"
+        with col2:
+            if st.button("Send Money", use_container_width=True):
+                st.session_state.quick_action = "Transfer"
+                
+        # Handle quick action display if clicked
+        action = st.session_state.get("quick_action", "Deposit")
+        if action == "Deposit":
+            st.write("---")
+            st.write("#### Instant Deposit")
+            dep_amount = st.number_input("Amount (₦):", min_value=0.0, step=500.0)
+            if st.button("Confirm Deposit"):
                 if dep_amount > 0:
                     user_data['balance'] += dep_amount
                     user_data['history'].append(f"[{get_time()}] Deposited: +₦{dep_amount:,.2f}")
                     save_db(st.session_state.db)
-                    st.success(f"Successfully deposited ₦{dep_amount:,.2f}")
+                    st.success("Deposit successful!")
                     st.rerun()
-                    
-        # --- WITHDRAW ---
-        with with_tab:
-            st.write("Withdraw funds from your account.")
-            with_amount = st.number_input("Amount to withdraw (₦):", min_value=0.0, step=500.0, key="wit")
-            with_pin = st.text_input("Confirm PIN:", type="password", max_chars=4, key="wit_pin")
-            if st.button("Withdraw Funds"):
-                if with_pin != user_data['pin']:
-                    st.error("Incorrect PIN.")
-                elif with_amount > user_data['balance']:
-                    st.error("Insufficient funds.")
-                elif with_amount > 0:
-                    user_data['balance'] -= with_amount
-                    user_data['history'].append(f"[{get_time()}] Withdrew: -₦{with_amount:,.2f}")
-                    save_db(st.session_state.db)
-                    st.success(f"Successfully withdrew ₦{with_amount:,.2f}")
-                    st.rerun()
-                    
-        # --- TRANSFER ---
-        with trans_tab:
-            st.write("Send money to another Apex Bank user.")
+        else:
+            st.write("---")
+            st.write("#### Transfer Funds")
             rec_acc = st.text_input("Receiver's 10-Digit Account Number:")
-            trans_amount = st.number_input("Amount to send (₦):", min_value=0.0, step=500.0, key="trans")
-            trans_pin = st.text_input("Confirm PIN:", type="password", max_chars=4, key="trans_pin")
-            
-            if st.button("Transfer Funds"):
-                # Reload DB immediately before transfer execution
-                st.session_state.db = load_db()
-                sender_data = st.session_state.db[acc_num]
-                
-                if trans_pin != sender_data['pin']:
+            trans_amount = st.number_input("Amount to send (₦):", min_value=0.0, step=500.0)
+            trans_pin = st.text_input("Confirm PIN:", type="password", max_chars=4)
+            if st.button("Send Now"):
+                if trans_pin != user_data['pin']:
                     st.error("Incorrect PIN.")
                 elif rec_acc not in st.session_state.db:
-                    st.error("Receiver Account not found.")
-                elif rec_acc == acc_num:
-                    st.error("You cannot transfer to yourself.")
-                elif trans_amount > sender_data['balance']:
-                    st.error("Insufficient funds for this transfer.")
-                elif trans_amount > 0:
-                    # Deduct from Sender
-                    sender_data['balance'] -= trans_amount
-                    sender_data['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
-                    
-                    # Add to Receiver
+                    st.error("Receiver not found.")
+                elif trans_amount > user_data['balance']:
+                    st.error("Insufficient funds.")
+                else:
+                    user_data['balance'] -= trans_amount
+                    user_data['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
                     st.session_state.db[rec_acc]['balance'] += trans_amount
                     st.session_state.db[rec_acc]['history'].append(f"[{get_time()}] Received from {acc_num}: +₦{trans_amount:,.2f}")
-                    
                     save_db(st.session_state.db)
-                    st.success(f"Successfully transferred ₦{trans_amount:,.2f} to {st.session_state.db[rec_acc]['name']}.")
+                    st.success("Transfer successful!")
                     st.rerun()
-                    
-        # --- HISTORY ---
-        with hist_tab:
-            st.write("Recent Transactions")
-            with st.container(border=True):
-                for record in reversed(user_data['history']):
-                    st.text(record)
-                    
-        st.divider()
-        if st.button("Secure Log Out"):
+
+    elif nav == "💸 Transactions":
+        st.subheader("📜 Transaction History")
+        with st.container(border=True):
+            for record in reversed(user_data['history']):
+                st.text(record)
+
+    elif nav == "📊 Wealth / Savings":
+        st.subheader("💰 Apex Target Savings")
+        st.write("Lock funds to earn up to 15% interest per annum.")
+        st.info("No active savings plans yet. Create one to start growing your wealth!")
+
+    elif nav == "🎁 Rewards":
+        st.subheader("🎉 Cashback & Rewards")
+        st.write("Earn points on every transfer and deposit you make.")
+        st.metric("Reward Points", "1,250 pts")
+
+    elif nav == "⚙️ Me / Profile":
+        st.subheader("User Profile & Settings")
+        st.write(f"**Name:** {user_data['name']}")
+        st.write(f"**Account Number:** {acc_num}")
+        
+        if st.button("Log Out", type="primary", use_container_width=True):
             st.session_state.logged_in_acc = None
             st.rerun()
