@@ -393,7 +393,7 @@ else:
                     st.error("You cannot transfer to yourself.")
                 elif trans_amount > sender['balance']:
                     st.error("Insufficient funds.")
-                elif trans_amount > 0
+                elif trans_amount > 0 :
                     # Deduct sender
                     sender['balance'] -= trans_amount
                     sender['history'].append(f"[{get_time()}] Transfer to {rec_acc}: -₦{trans_amount:,.2f}")
